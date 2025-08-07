@@ -7,7 +7,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
-static BOT_VERSION: &str = "v1.0.0";
+static BOT_VERSION: &str = "v1.0.1";
 
 struct Handler; 
 
@@ -21,11 +21,11 @@ impl EventHandler for Handler {
 "Running bot version **{}**
 Help with commands:
 
-__w!verifiedrole [role-id]__
-*Use this command to specify the role used for verified members*
-
 __w!verify [discord-ping] [minecraft-user]__
 *Verifies a person and links their MC and DC names together, also gives them the verified role. Make sure to ping the member so it surely gets the right person*
+
+__w!unverify [discord-ping]__
+*Unverifies a person, also removes their role*
 
 __w!whois [dc | mc] [name]__
 *Gives you the mc name of someone based on their dc name, or the other way around*
@@ -33,8 +33,8 @@ __w!whois [dc | mc] [name]__
 __w!list__
 *List all verified members*
 
-__w!unverify [discord-ping]__
-*Unverifies a person, also removes their role*
+__w!verifiedrole [role-id]__
+*Use this command to specify the role used for verified members*
 
 The command to verify people is only available to people with the Manage Roles permission
 Commands to manage the verification system are only available to people with Administrator",
@@ -45,8 +45,11 @@ BOT_VERSION
 
         else if msg.content.starts_with("w!list") {
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
-            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please. (Can't fetch server's verified members)").await.unwrap(); return;}
+            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
             let names = get_names(guild_id);
+
+            // In case no one is verified
+            if names.len() == 0 {msg.reply(&ctx, "This server has no verified members"); return;}
 
             // Make embed for the thing
             let mut embed = CreateEmbed::new();
@@ -64,7 +67,7 @@ BOT_VERSION
 
             // Run the set mode and check for names (I'm aware this code is ass)
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
-            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please. (Can't fetch server's verified members)").await.unwrap(); return;}
+            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
             let namelist = get_names(guild_id);
             if args[1].to_lowercase() == "dc" {
                 for name in namelist {
