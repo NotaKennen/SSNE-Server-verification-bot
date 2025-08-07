@@ -16,7 +16,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "DEVELOPMENT v1.3.0";
+static BOT_VERSION: &str = "v1.3.0";
 
 // TODO: Do a full rewrite of verify() and unverify()
 /// Verify a member
