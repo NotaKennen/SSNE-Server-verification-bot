@@ -49,7 +49,7 @@ BOT_VERSION
             let names = get_names(guild_id);
 
             // In case no one is verified
-            if names.len() == 0 {msg.reply(&ctx, "This server has no verified members"); return;}
+            if names.len() == 0 {msg.reply(&ctx, "This server has no verified members").await.unwrap(); return;}
 
             // Make embed for the thing
             let mut embed = CreateEmbed::new();
