@@ -12,6 +12,8 @@ To enable join notifications, do __w!notifchannel (channel-id)__, where *(channe
 
 To enable the "veteran role", or the role given to unverified people, do __w!vetrole (role-id)__, where *(role-id)* is the role given. Then the bot will give a role to whoever happens to be unverified, either through the automatic member management or a manual w!unverify command.
 
+To specify extra roles to remove when a person is unverified (like ranks etc.), do __w!removedroles (role-id)__, so that *(role-id)* is a role you want to remove on unverification. You can list as many role IDs as you want, add a space between them. Note that whatever you put in there will overwrite the current configuration, so when adding new ones, list the old ones before it.
+
 ### Self hosting?
 If you want to host the bot yourself, you can clone the git repo, make a file called token.txt, put your bot token in there, and then run the Rust project ("cargo run"). Then you should have a local instance of the bot that you can add to your server. 
 
