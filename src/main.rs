@@ -16,7 +16,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.1.0";
+static BOT_VERSION: &str = "v1.1.1";
 
 // TODO: make verify and unverify functions use better args
 /// Verify a member
@@ -30,7 +30,7 @@ async fn verify(ctx: &Context, msg: &Message, args: Vec<&str>) {
     let mc_username = args[2];
     let mc_user = match McUsername::try_new_from_name(mc_username).await {
         Some(user) => {user},
-        None => {msg.reply(&ctx, "Username isn't valid or isn't found through the Mojang API. Are you sure you wrote it correctly?").await.unwrap(); return;}
+        None => {msg.reply(&ctx, "Username wasn't found through the Mojang API. Are you sure you wrote it correctly? (User was not verified)").await.unwrap(); return;}
     };
 
     // Commit to DB
@@ -55,7 +55,7 @@ async fn verify(ctx: &Context, msg: &Message, args: Vec<&str>) {
     let _ = target_mem_clone.edit(&ctx, builder).await; // don't unwrap this because perms might sometimes block nick changes and stop code here
 
     // Respond
-    msg.reply(&ctx, format!("User \"{}\" has been verified as \"{}\".", dc_username, mc_username)).await.unwrap();
+    msg.reply(&ctx, format!("{} has been verified as \"{}\".", dc_username, mc_username)).await.unwrap();
 }
 
 /// Unverify a member
@@ -194,6 +194,9 @@ __w!list__
 __w!verifiedrole [role-id]__
 *Use this command to specify the role used for verified members*
 
+__w!guildname [guild-name]__
+*Use this command to specify what wynncraft guild should the bot compare to when doing automatic member management* 
+
 The command to verify people is only available to people with the Manage Roles permission
 Commands to manage the verification system are only available to people with Administrator",
 BOT_VERSION
@@ -291,7 +294,7 @@ BOT_VERSION
         else if msg.content.starts_with("w!guildname") {
             // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
-            if args.len() < 2 {msg.reply(&ctx, "Command requires 1 argument\nUsage: w!guildname [guild-prefix]").await.unwrap(); return;}
+            if args.len() < 2 {msg.reply(&ctx, "Command requires 1 argument\nUsage: w!guildname [guild-name]").await.unwrap(); return;}
 
             // Check if it's real
             if !is_real_guild(args[1]).await {
@@ -309,7 +312,7 @@ BOT_VERSION
         }
 
         /* if msg.content.starts_with("w!debug_runupdate") {
-            println!("DEBUG: Ran forced update");
+            println!("DEBUG: Running forced update");
             run_wynndc_update().await
         } */ // Command to force run update (disabled obv)
     }
@@ -320,19 +323,17 @@ BOT_VERSION
 
         // Start scheduler for updates (do an update every hour) 
         // Tbh I barely understand what's going on here
-        if true { // nice toggle
-            let mut interval_timer = tokio::time::interval(chrono::Duration::hours(1).to_std().unwrap());
-            tokio::spawn( async move { loop {
-                interval_timer.tick().await;
-                tokio::spawn( async move {
-                    println!("STATUS: Running updater");
-                    run_wynndc_update().await;
-                    println!("STATUS: Hourly update done!")
-                    }
-                );
-            }}
+        let mut interval_timer = tokio::time::interval(chrono::Duration::hours(1).to_std().unwrap());
+        tokio::spawn( async move { loop {
+            interval_timer.tick().await;
+            tokio::spawn( async move {
+                println!("STATUS: Running updater");
+                run_wynndc_update().await;
+                println!("STATUS: Hourly update done!")
+                }
             );
-        }
+        }}
+        );
     }
 }
 
@@ -340,20 +341,10 @@ BOT_VERSION
 async fn main() {
     // Load token from file
     let token = std::fs::read_to_string("token.txt").expect("Unable to read token file");
-
-    // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
-
-    // Create a new instance of the Client, logging in as a bot. This will automatically prepend
-    // your bot token with "Bot ", which is a requirement by Discord for bot users.
     let mut client =
         Client::builder(&token, intents).event_handler(Handler).await.expect("Err creating client");
-
-    // Finally, start a single shard, and start listening to events.
-    //
-    // Shards will automatically attempt to reconnect, and will perform exponential backoff until
-    // it reconnects.
     if let Err(why) = client.start().await {
         println!("Client error: {why:?}");
     }
