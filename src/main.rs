@@ -16,7 +16,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.2.1";
+static BOT_VERSION: &str = "DEVELOPMENT v1.3.0";
 
 // TODO: Do a full rewrite of verify() and unverify()
 /// Verify a member
@@ -50,6 +50,19 @@ async fn verify(ctx: &Context, msg: &Message, args: Vec<&str>) {
     let mut target_mem_clone = target_member.clone(); // Make a clone for later (nick change)
     if role_id != 0 { target_member.add_role(&ctx, RoleId::new(role_id)).await.unwrap(); }
 
+    // Remove vet role if applicable
+    match get_guild_config(guild_id, "veteran-role-id") {
+        None => {}
+        Some(str_roleid) => {
+            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
+            let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
+            let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
+            let target_id = UserId::new(target_id_int);
+            let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
+            target_member.remove_role(&ctx, roleid).await.unwrap();
+        }
+    }
+
     // Add nickname
     let builder = EditMember::new().nickname(mc_username);
     let _ = target_mem_clone.edit(&ctx, builder).await; // don't unwrap this because perms might sometimes block nick changes and stop code here
@@ -79,6 +92,21 @@ async fn unverify(ctx: &Context, msg: &Message, args: Vec<&str>) {
     let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
     target_member.remove_role(&ctx, role_id).await.unwrap();
     } // Note that this (^) only runs if role id != 0 (if in previous chunk (might be hard to see))
+
+    // If set, add vet role
+    match get_guild_config(guild_id, "veteran-role-id") {
+        None => {}
+        Some(str_roleid) => { // This code is horrifyingly bad, PLEASE fix in rework
+            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
+            let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
+            let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
+            let target_id = UserId::new(target_id_int);
+            let guild: GuildId = GuildId::new(guild_id as u64);
+            let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: more token reads to remove
+            let target_member = guild.member(&cache, target_id).await.unwrap();
+            target_member.add_role(&cache, roleid).await.unwrap();
+        }
+    }
     
     // Commit and reply
     remove_name_from_db(guild_id, DcUsername::new_from_pingid(args[1]));
@@ -103,6 +131,19 @@ async fn update_unverify_helper(guild_id: i64, dc_user: DcUsername) {
     target_member.remove_role(cache, role_id).await.unwrap();
     } // Note that this (^) only runs if role id != 0 (if in previous chunk (might be hard to see))
     
+    // If set, add vet role
+    match get_guild_config(guild_id, "veteran-role-id") {
+        None => {}
+        Some(str_roleid) => {
+            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
+            let target_id = UserId::new(dc_user.rawid as u64);
+            let guild: GuildId = GuildId::new(guild_id as u64);
+            let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: more token reads to remove
+            let target_member = guild.member(&cache, target_id).await.unwrap();
+            target_member.add_role(&cache, roleid).await.unwrap();
+        }
+    }
+
     // Commit and reply
     remove_name_from_db(guild_id, dc_user);
 }
@@ -243,6 +284,9 @@ __w!guildname [guild-name]__
 
 __w!notifchannel [channel-id]__
 *Use this command to specify where should join notifications go to*
+
+__w!vetrole [role-id]__
+*Use this command to specify the role given to people who've been unverified*
 
 The command to verify people is only available to people with the Manage Roles permission
 Commands to manage the verification system are only available to people with Administrator",
@@ -386,6 +430,24 @@ BOT_VERSION
             // Commit and reply
             push_guild_config(guild_id, "notif-channel-id", notif_channelid.to_string());
             msg.reply(&ctx, "Channel has been saved").await.unwrap();
+        }
+
+        else if msg.content.starts_with("w!vetrole") {
+            // Get and check arguments
+            let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {msg.reply(&ctx, "Command requires 1 argument\nUsage: w!vetrole [role-id]").await.unwrap(); return;}
+
+            // Format the provided (str) id to a proper integer
+            let role_id = match args[1].parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
+            if role_id == 0 {msg.reply(&ctx, "The ID you provided couldn't be parsed (probably incorrect)").await.unwrap(); return;}
+
+            // Push the role id to the config file 
+            let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+            push_guild_config(guild_id, "veteran-role-id", role_id.to_string());
+
+            // Answer
+            msg.reply(&ctx, "Veteran role has been saved").await.unwrap();
         }
 
         /* if msg.content.starts_with("w!debug_runupdate") {

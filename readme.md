@@ -10,6 +10,8 @@ To enable automatic member management, do __w!guildname (guild-name)__, where *(
 
 To enable join notifications, do __w!notifchannel (channel-id)__, where *(channel-id)* is the channel where you want your notifications in. The bot will then send a message there when someone joins. You do need to set the guildname (w!guildname) for it to work though.
 
+To enable the "veteran role", or the role given to unverified people, do __w!vetrole (role-id)__, where *(role-id)* is the role given. Then the bot will give a role to whoever happens to be unverified, either through the automatic member management or a manual w!unverify command.
+
 ### Self hosting?
 If you want to host the bot yourself, you can clone the git repo, make a file called token.txt, put your bot token in there, and then run the Rust project ("cargo run"). Then you should have a local instance of the bot that you can add to your server. 
 

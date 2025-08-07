@@ -82,7 +82,10 @@ pub fn get_names(guild_id: i64) -> Vec<[String; 3]> {
 /// Get a config value from a guild
 pub fn get_guild_config(guild_id: i64, config_name: &str) -> Option<String> {
     match read_to_string(format!("{}/{}/{}", DB_PATH, guild_id, config_name)) {
-        Ok(text) => {Some(text)},
+        Ok(text) => {
+            if text == "" {return None};
+            Some(text)
+        },
         Err(_) => {None}
     }
 }
