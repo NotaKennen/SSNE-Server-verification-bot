@@ -1,4 +1,29 @@
 # SSNE Server verification bot
-This is like a super basic bot I made for a Wynncraft guild. It can semi-automatically verify people (give roles and nicknames) by using a command, allowing for people to keep track of who has been verified and who hasn't. It also includes some basic tracking features, like getting everyone's Minecraft names (or alternatively only checking a single name). 
+A fairly basic Discord bot custom made for the SSNE Wynncraft guild (although it works for all guilds). Its purpose is to function as an easy way to verify people so they can interact in and/or see the member channels. It mostly manages everything automatically, but there's still some need for manual intervention, mainly just running a single command whenever a person joins the Discord. This command then adds them to the member list, and they can then be searched for and managed through the bot.
 
-This is really just some practice, it's not a particularly impressive project by any means, but it's at least fun to work on. I'd like to improve it a little, and as of writing, I'm still working on some small features.
+## Usage
+If you want to start using the bot, you can simply add it to your server. Without any need for setup, it can keep track of your verified members. However, to enable some of the other features, you'll need to do some commands.
+
+To enable role management, do __w!verifiedrole (role-id)__, where *(role-id)* is the ID of the role you want to give to verified people.
+The bot will now give this role to anyone who is verified through it. Note that it'll NOT give the role to people who have been verified before.
+
+To enable automatic member management, do __w!guildname (guild-name)__, where *(guild-name)* is your 4 character Wynncraft guild ID (seen on territory maps etc).
+Now the bot will automatically unverify anyone who isn't in the guild. It might take up to an hour or so for the unverification to happen, since we don't want to spam the Wynncraft API.
+
+### Self hosting?
+If you want to host the bot yourself, you can clone the git repo, make a file called token.txt, put your bot token in there, and then run the Rust project ("cargo run"). Then you should have a local instance of the bot that you can add to your server. 
+
+## Features
+As for features, it can:
+- (Semi-)Automatically verify people and give them roles
+- Keeps track of names and can search people based on their Discord or Minecraft name
+- Automatically removes people who leave / are kicked from the Wynncraft guild
+- Give managed access to verification to guild staff without the need of extra permissions
+
+Planned features:
+- Automatically update members when they change Minecraft usernames
+- Fun statistics :D
+- More configuration on what the bot should/shouldn't do
+- Activity tracking
+- (Maybe?) Fully automatic verification (without the need of admins/managers)
+- (Backend) A better DB system

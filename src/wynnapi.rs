@@ -12,7 +12,7 @@ pub async fn get_mc_uuid(username: &str) -> Option<String> {
         return None
     }
     return Some(resp["id"].as_str().unwrap().to_string()) // force convert to string just to be safe
-} // FIXME: crashes if the name doesn't exist
+}
 
 /// Checks whether or not a guild exists, returns true/false
 pub async fn is_real_guild(guild_identification: &str) -> bool {
