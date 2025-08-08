@@ -1,0 +1,4 @@
+# SSNE Server verification bot
+This is like a super basic bot I made for a Wynncraft guild. It can semi-automatically verify people (give roles and nicknames) by using a command, allowing for people to keep track of who has been verified and who hasn't. It also includes some basic tracking features, like getting everyone's Minecraft names (or alternatively only checking a single name). 
+
+This is really just some practice, it's not a particularly impressive project by any means, but it's at least fun to work on. I'd like to improve it a little, and as of writing, I'm still working on some small features.
