@@ -16,7 +16,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.5.0";
+static BOT_VERSION: &str = "v1.5.1";
 
 /// Verify a member
 async fn verify(cache: impl AsRef<Http> + serenity::prelude::CacheHttp, guild_id: i64, target_dc_user: DcUsername, target_mc_user: McUsername) -> Result<String, String> {
@@ -222,19 +222,28 @@ impl EventHandler for Handler {
         if msg.content.starts_with("w!help") {
             msg.reply(&ctx, format!(
 "Running bot version **{}**
-Help with commands:
+Command permissions, arguments and descriptions:
+
+\\- - - Everyone - - -
+
+__w!help__
+*Take a guess*
+
+__w!whois ['dc' | 'mc'] [name]__
+*Gives you the mc name of someone based on their dc name, or the other way around*
+
+__w!list__
+*List all verified members*
+
+\\- - - Manage roles permissions - - -
 
 __w!verify [discord-ping] [minecraft-user]__
 *Verifies a person and links their MC and DC names together, also gives them the verified role. Make sure to ping the member so it surely gets the right person*
 
 __w!unverify [discord-ping]__
-*Unverifies a person, also removes their role*
+*Unverifies a person, also removes their role, ping the person so it gets the right one*
 
-__w!whois [dc | mc] [name]__
-*Gives you the mc name of someone based on their dc name, or the other way around*
-
-__w!list__
-*List all verified members*
+\\- - - Administrator - - -
 
 __w!verifiedrole [role-id]__
 *Use this command to specify the role used for verified members*
@@ -251,8 +260,8 @@ __w!vetrole [role-id]__
 __w!removedroles [role-id1] <role-id2> <role-id3>...__
 *Use this command to specify what roles should be removed when a person is unverified (e.g. ranks), you can list multiple, add a space between the IDs.*
 
-The command to verify people is only available to people with the Manage Roles permission
-Commands to manage the verification system are only available to people with Administrator",
+See the github repo for more accurate information, source code, or if you have any issues with the bot: 
+<https://github.com/NotaKennen/SSNE-Server-verification-bot>",
 BOT_VERSION
             )).await.unwrap();
             return;
