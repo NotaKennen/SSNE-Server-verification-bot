@@ -3,6 +3,7 @@ Some fields and functions in this file have been commented out as they are not a
 They are left in though, as they might be necessary later (and I already coded them anyway)
 */
 
+use crate::wynnapi::get_mc_uuid;
 
 //
 // - - - Structs - - -
@@ -13,7 +14,7 @@ pub struct McUsername {
 }
 
 pub struct DcUsername {
-    // pub rawid: i64,
+    pub rawid: i64,
     pub pingid: String
 }
 
@@ -21,11 +22,14 @@ pub struct DcUsername {
 // - - - Implementations - - -
 //
 impl McUsername {
-    pub fn new_from_name(name: &str) -> Self {
-        McUsername { 
+    pub async fn try_new_from_name(name: &str) -> Option<Self> {
+        Some(McUsername { 
             name: name.to_string(), 
-            uuid: "TEMPORARY-UUID".to_string() //TODO: implement UUID getting
-        }
+            uuid: match get_mc_uuid(name).await {
+                Some(uuid) => {uuid}
+                None => {return None}
+            }
+        })
     }
 
     /* pub fn new_from_uuid(uuid: &str) -> Self {
@@ -46,12 +50,12 @@ impl DcUsername {
 
     pub fn new_from_pingid(id: &str) -> Self {
         DcUsername {
-            /* rawid: {
+            rawid: {
                 let str_id = id.strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
                 let int_id = match str_id.parse::<i64>() {Ok(id) => {id}, Err(_) => {0}};
                 if int_id == 0 {panic!("Passed incorrect value, could not parse to i64!")};
                 int_id
-            }, */
+            },
             pingid: id.to_string()
         }
     }

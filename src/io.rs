@@ -92,3 +92,8 @@ pub fn push_guild_config(guild_id: i64, config_name: &str, value: String) {
     let _ = create_dir_all(format!("{}/{}", DB_PATH, guild_id.to_string())); // ensure everything exists
     write(format!("{}/{}/{}", DB_PATH, guild_id, config_name), value).unwrap();
 }
+
+/// Get the statics DB_PATH and DB_FILE (in that order)
+pub fn get_db_statics() -> [String; 2] {
+    return [DB_PATH.to_string(), DB_FILE.to_string()]
+}
