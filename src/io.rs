@@ -16,7 +16,7 @@ static DB_PATH: &str = "DBs";           // Name of the folder where DBs are stor
 static DB_FILE: &str = "names.txt";     // Name of the DB file (.txt my favorite db format)
 
 /// Insert a name to the DB
-pub fn insert_name_to_db(guild_id: i64, dc_user: DcUsername, mc_user: McUsername) {
+pub fn insert_name_to_db(guild_id: i64, dc_user: &DcUsername, mc_user: &McUsername) {
     let database_path = format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE);
     create_dir_all(format!("{}/{}", DB_PATH, guild_id)).ok();
 

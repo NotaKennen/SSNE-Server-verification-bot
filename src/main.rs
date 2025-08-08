@@ -16,178 +16,101 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.4.0";
+static BOT_VERSION: &str = "v1.5.0";
 
-// TODO: Do a full rewrite of verify() and unverify()
 /// Verify a member
-async fn verify(ctx: &Context, msg: &Message, args: Vec<&str>) {
-    // Make user objects
-    let dc_username = args[1];
-    let dc_user = match DcUsername::try_from_pingid(dc_username) {
-        Some(dcuser) => dcuser,
-        None => {msg.reply(&ctx, "Please ping the user or format as <@(userid)>").await.unwrap(); return}
+async fn verify(cache: impl AsRef<Http> + serenity::prelude::CacheHttp, guild_id: i64, target_dc_user: DcUsername, target_mc_user: McUsername) -> Result<String, String> {
+    // Make objects to be used later
+    let guild_obj = GuildId::new(guild_id as u64);
+    let target_userid = UserId::new(target_dc_user.rawid as u64);
+    let mut target_member = match guild_obj.member(&cache, target_userid).await {
+        Err(_) => {return Err("Couldn't find target member".to_string())},
+        Ok(member) => member
     };
-    let mc_username = args[2];
-    let mc_user = match McUsername::try_new_from_name(mc_username).await {
-        Some(user) => {user},
-        None => {msg.reply(&ctx, "Username wasn't found through the Mojang API. Are you sure you wrote it correctly? (User was not verified)").await.unwrap(); return;}
-    };
-
-    // Commit to DB
-    let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
-    if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please. (Member was not verified)").await.unwrap(); return;}
-    insert_name_to_db(guild_id, dc_user, mc_user);
-
-    // Add role (messy af ik)
-    let str_role_id = match get_guild_config(guild_id, "verified-role-id") {
-        Some(id) => {id},
-        None => {"0".to_string()} };
-    let role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-    let mod_dc_username = dc_username.strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
-    let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-    let target_id = UserId::new(target_id_int);
-    let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
-    let mut target_mem_clone = target_member.clone(); // Make a clone for later (nick change)
-    if role_id != 0 { target_member.add_role(&ctx, RoleId::new(role_id)).await.unwrap(); }
-
-    // Remove vet role if applicable
-    match get_guild_config(guild_id, "veteran-role-id") {
-        None => {}
-        Some(str_roleid) => {
-            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-            let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
-            let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-            let target_id = UserId::new(target_id_int);
-            let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
-            target_member.remove_role(&ctx, roleid).await.unwrap();
+    
+    // Add verified role
+    match get_guild_config(guild_id, "verified-role-id") {
+        None => {},
+        Some(str_role_id) => {
+            let verified_role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {1} };
+            let verified_role = RoleId::new(verified_role_id);
+            let _ = target_member.add_role(&cache, verified_role).await;
         }
     }
 
+    // Remove vet role
+    match get_guild_config(guild_id, "veteran-role-id") {
+        None => {},
+        Some(str_role_id) => {
+            let veteran_role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {1} };
+            let veteran_role = RoleId::new(veteran_role_id);
+            let _ = target_member.remove_role(&cache, veteran_role).await;
+        }
+    }
+    
     // Add nickname
-    let builder = EditMember::new().nickname(mc_username);
-    let _ = target_mem_clone.edit(&ctx, builder).await; // don't unwrap this because perms might sometimes block nick changes and stop code here
+    let nick_builder = EditMember::new().nickname(&target_mc_user.name);
+    let _ = target_member.edit(&cache, nick_builder).await;
+
+    // Commit to DB
+    insert_name_to_db(guild_id, &target_dc_user, &target_mc_user);
 
     // Respond
-    msg.reply(&ctx, format!("{} has been verified as \"{}\".", dc_username, mc_username)).await.unwrap();
+    return Ok(format!("Discord user \"{}\" has been verified as \"{}\"", target_dc_user.pingid, target_mc_user.name))
 }
 
 /// Unverify a member
-async fn unverify(ctx: &Context, msg: &Message, args: Vec<&str>) {
-    // check that it's a discord username
-    if !(args[1].starts_with("<@") && args[1].ends_with(">")) {
-        msg.reply(&ctx, "Please ping the user or format as <@(userid)>").await.unwrap(); return;
+async fn unverify(cache: impl AsRef<Http> + serenity::prelude::CacheHttp, guild_id: i64, target_dc_user: DcUsername) -> Result<String, String> {
+    // Make objects to be used later
+    let guild_obj = GuildId::new(guild_id as u64);
+    let target_userid = UserId::new(target_dc_user.rawid as u64);
+    let target_member = match guild_obj.member(&cache, target_userid).await {
+        Err(_) => {return Err("Couldn't find target member".to_string())},
+        Ok(member) => member
+    };
+    
+    // Remove verified role
+    match get_guild_config(guild_id, "verified-role-id") {
+        None => {},
+        Some(str_role_id) => {
+            let verified_role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {1} };
+            let verified_role = RoleId::new(verified_role_id);
+            let _ = target_member.remove_role(&cache, verified_role).await;
+        }
     }
 
-    // Get verified-role-id 
-    let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
-    let str_role_id = match get_guild_config(guild_id, "verified-role-id") {Some(roleid) => {roleid}, None => {"0".to_string()}};
-    let role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-    if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please. (User wasn't unverified)").await.unwrap(); return;}
-    if role_id != 0 {
-
-    // Remove role from user
-    let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
-    let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-    let target_id = UserId::new(target_id_int);
-    let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
-    target_member.remove_role(&ctx, role_id).await.unwrap();
-    } // Note that this (^) only runs if role id != 0 (if in previous chunk (might be hard to see))
-
-    // Do removable roles
+    // Remove all removable roles
     match get_guild_config(guild_id, "removed-roles") {
         None => {},
         Some(str_role_ids) => {
-            // Format role ids
-            let str_role_ids: Vec<&str> = str_role_ids.split(" ").collect();
+            let vec_role_ids: Vec<&str> = str_role_ids.split(" ").collect();
 
             // Run through them and try to remove
-            for str_role_id in str_role_ids {
-                let role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-                let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
-                let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-                let target_id = UserId::new(target_id_int);
-                let target_member = msg.guild_id.unwrap().member(&ctx, target_id).await.unwrap();
-                let _ = target_member.remove_role(&ctx, role_id).await;
+            for str_role_id in vec_role_ids {
+                let removable_role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {1} };
+                let _ = target_member.remove_role(&cache, removable_role_id).await;
             }
         }
     }
 
-    // If set, add vet role
+    // Add vet role
     match get_guild_config(guild_id, "veteran-role-id") {
-        None => {}
-        Some(str_roleid) => { // This code is horrifyingly bad, PLEASE fix in rework
-            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-            let mod_dc_username = args[1].strip_prefix("<@").unwrap().strip_suffix(">").unwrap();
-            let target_id_int = match mod_dc_username.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-            let target_id = UserId::new(target_id_int);
-            let guild: GuildId = GuildId::new(guild_id as u64);
-            let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: more token reads to remove
-            let target_member = guild.member(&cache, target_id).await.unwrap();
-            target_member.add_role(&cache, roleid).await.unwrap();
-        }
-    }
-    
-    // Commit and reply
-    remove_name_from_db(guild_id, DcUsername::new_from_pingid(args[1]));
-    msg.reply(&ctx, "User has been unverified").await.unwrap();
-}
-
-// TODO: start using the above unverify() function instead of a helper
-// needs the better arguments, so can't do that yet
-/// (Helper, don't use) Unverifies a member with better args
-async fn update_unverify_helper(guild_id: i64, dc_user: DcUsername) {
-    // Cache (//TODO: remove later)
-    let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: more token reads to remove
-
-    // Get verified-role-id
-    let str_role_id = match get_guild_config(guild_id, "verified-role-id") {Some(roleid) => {roleid}, None => {"0".to_string()}};
-    let role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-    if guild_id == 0 {return;}
-    if role_id != 0 {
-
-    // Remove role from user
-    let target_id = UserId::new(dc_user.rawid as u64);
-    let guild: GuildId = GuildId::new(guild_id as u64);
-    let target_member = guild.member(&cache, target_id).await.unwrap();
-    target_member.remove_role(&cache, role_id).await.unwrap();
-    } // Note that this (^) only runs if role id != 0 (if in previous chunk (might be hard to see))
-    
-    // Do removable roles
-    match get_guild_config(guild_id, "removed-roles") {
         None => {},
-        Some(str_role_ids) => {
-            // Format role ids
-            let str_role_ids: Vec<&str> = str_role_ids.split(" ").collect();
-
-            // Run through them and try to remove
-            for str_role_id in str_role_ids {
-                let role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {0} };
-                let target_id = UserId::new(dc_user.rawid as u64);
-                let guild: GuildId = GuildId::new(guild_id as u64);
-                let target_member = guild.member(&cache, target_id).await.unwrap();
-                target_member.remove_role(&cache, role_id).await.unwrap();
-            }
-        }
-    }
-
-    // If set, add vet role
-    match get_guild_config(guild_id, "veteran-role-id") {
-        None => {}
-        Some(str_roleid) => {
-            let roleid = match str_roleid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
-            let target_id = UserId::new(dc_user.rawid as u64);
-            let guild: GuildId = GuildId::new(guild_id as u64);
-            let target_member = guild.member(&cache, target_id).await.unwrap();
-            target_member.add_role(&cache, roleid).await.unwrap();
+        Some(str_role_id) => {
+            let veteran_role_id = match str_role_id.parse::<u64>() {Ok(id) => {id}, Err(_) => {1} };
+            let veteran_role = RoleId::new(veteran_role_id);
+            let _ = target_member.add_role(&cache, veteran_role).await;
         }
     }
 
     // Commit and reply
-    remove_name_from_db(guild_id, dc_user);
+    remove_name_from_db(guild_id, target_dc_user);
+    return Ok("User has been unverified".to_string())
 }
 
+// TODO: Eventual rewrite for this as well
 /// Run the guild wynn-dc syncing
-async fn run_wynndc_update() -> () {
+async fn run_wynndc_update(cache: impl AsRef<Http> + serenity::prelude::CacheHttp) -> () {
     let guild_ids: Vec<i64> = {
         let mut guild_ids: Vec<i64> = vec![];
         let db_dir = &get_db_statics()[0];
@@ -257,7 +180,6 @@ async fn run_wynndc_update() -> () {
                         None => {continue;}          // Maybe I'll optimize it later if I care
                     }; 
                     let msg_builder = CreateMessage::new().content(format!("**{}** has joined the guild!", wg_username));
-                    let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: again, don't read token
                     notifchannel.send_message(&cache, msg_builder).await.unwrap();
                 };
             }
@@ -283,7 +205,7 @@ async fn run_wynndc_update() -> () {
                 &box_dcguildmembers[index][0]
             );
             member_removed_counter += 1;
-            update_unverify_helper(guild_id, dc_user).await;
+            let _ = unverify(&cache, guild_id, dc_user).await;
         }
         index += 1;
     }}
@@ -388,17 +310,40 @@ BOT_VERSION
         // - - - MANAGE ROLES PERMISSION LEVEL - - - 
 
         if msg.content.starts_with("w!verify") {
-            // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
             if args.len() < 3 {msg.reply(&ctx, "Command requires 2 arguments\nUsage: w!verify [discord-ping] [minecraft-user]").await.unwrap(); return;}
-            verify(&ctx, &msg, args).await; // Commit
+            let dc_user = match DcUsername::try_from_pingid(args[1]) {
+                Some(obj) => obj,
+                None => {let _ = msg.reply(&ctx, "Please ping the user or format as <@id> to ensure it gets the right person.").await; return;}
+            };
+            let mc_user = match McUsername::try_new_from_name(args[2]).await {
+                Some(obj) => obj,
+                None => {let _ = msg.reply(&ctx, "Couldn't find the Minecraft user from Mojang's API, did you write it correctly?").await; return;}
+            };
+            let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+            let resp = verify(&ctx, guild_id, dc_user, mc_user).await; // Commit
+            match resp {
+                Ok(rsp) => {let _ = msg.reply(&ctx, rsp).await; return},
+                Err(rsp) => {let _ = msg.reply(&ctx, rsp).await; return},
+            }
         }
 
         else if msg.content.starts_with("w!unverify") {
             // get arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
             if args.len() < 2 {msg.reply(&ctx, "Command requires 1 argument\nUsage: w!unverify [discord-ping]").await.unwrap(); return;}
-            unverify(&ctx, &msg, args).await; // Commit
+            let dc_user = match DcUsername::try_from_pingid(args[1]) {
+                Some(obj) => obj,
+                None => {let _ = msg.reply(&ctx, "Please ping the user or format as <@id> to ensure it gets the right person.").await; return;}
+            };
+            let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+            if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+            let resp = unverify(&ctx, guild_id, dc_user).await; // Commit
+            match resp {
+                Ok(rsp) => {let _ = msg.reply(&ctx, rsp).await; return},
+                Err(rsp) => {let _ = msg.reply(&ctx, rsp).await; return},
+            }
         } 
 
         // Next perms check level
@@ -492,6 +437,7 @@ BOT_VERSION
         }
 
         else if msg.content.starts_with("w!removedroles") {
+            // TODO: let people clear configs by not passing args
             // Get args and misc (different from usual since we don't know how many there are)
             let args = match msg.content.strip_prefix("w!removedroles ") {None => {"".to_string()}, Some(args) => {args.to_string()}};
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
@@ -520,8 +466,9 @@ BOT_VERSION
             interval_timer.tick().await;
             tokio::spawn( async move {
                 println!("STATUS: Running updater");
-                run_wynndc_update().await;
-                println!("STATUS: Hourly update done!")
+                let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap());
+                run_wynndc_update(cache).await; // ^ // TODO: Figure out a solution that doesn't re-read token 
+                println!("STATUS: Hourly update done!") // ^ Shouldn't be too hard tbh
                 }
             );
         }}
