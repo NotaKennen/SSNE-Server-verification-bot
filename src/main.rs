@@ -16,7 +16,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "DEVELOPMENT v1.1.0";
+static BOT_VERSION: &str = "v1.1.0";
 
 // TODO: make verify and unverify functions use better args
 /// Verify a member
