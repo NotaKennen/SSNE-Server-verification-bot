@@ -8,7 +8,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
-static BOT_VERSION: &str = "v1.0.1";
+static BOT_VERSION: &str = "v1.0.2";
 
 struct Handler; 
 

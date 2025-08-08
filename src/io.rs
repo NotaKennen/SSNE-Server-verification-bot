@@ -1,24 +1,28 @@
 use std::fs::{read_to_string, write, create_dir_all};
 
-static DB_PATH: &str = "DBs";           // Name of the folder where DBs are stored ( {DB_PATH}/serverid/{DB_NAME} )
-static DB_NAME: &str = "names.txt";     // Name of the DB file (.txt my favorite db format)
+/*
+The database is formatted like this:
+(dc-ping) (mc-name) (mc-uuid)
+
+The database file is in the path
+{DB_PATH} / (server-id) / {DB_FILE}
+
+The database *folder* (not file!) also stores the server's config.
+*/
+
+static DB_PATH: &str = "DBs";           // Name of the folder where DBs are stored
+static DB_FILE: &str = "names.txt";     // Name of the DB file (.txt my favorite db format)
 
 // TODO: Database code rewrite (start using a better format or something)
 
-/// Automatically formats the db path by using statics, just some qol
-fn get_db_path(guild_id: i64) -> String {
-    let str_guild_id = guild_id.to_string();
-    return format!("{}/{}/{}", DB_PATH, str_guild_id, DB_NAME)
-}
-
 /// Insert a name to the DB
 pub fn insert_name_to_db(guild_id: i64, dc_user: &str, mc_user: &str) {
-    let previous_text: String = match read_to_string(get_db_path(guild_id)) {
+    let previous_text: String = match read_to_string(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE)) {
         Ok(text) => {text},
         Err(_) => {"".to_string()}
     };
     let _ = create_dir_all(format!("{}/{}", DB_PATH, guild_id.to_string()));
-    write(get_db_path(guild_id), format!("{}{} {}\n", previous_text, dc_user, mc_user)).unwrap();
+    write(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE), format!("{}{} {}\n", previous_text, dc_user, mc_user)).unwrap();
 }
 
 /// Remove a name from the DB (automatically runs for both mc and dc username)
@@ -43,13 +47,13 @@ pub fn remove_name_from_db(guild_id: i64, username: &str) {
 
 /// Delete the entire name DB (don't use unless necessary)
 fn clear_name_db(guild_id: i64) {
-    write(get_db_path(guild_id), "").unwrap();
+    write(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE), "").unwrap();
 }
 
 /// Gets all the names in the name DB, in format {dc, mc}
 pub fn get_names(guild_id: i64) -> Vec<[String; 2]> {
     // get names or ""
-    let names = match read_to_string(get_db_path(guild_id)) {
+    let names = match read_to_string(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE)) {
         Ok(text) => {text}
         Err(_) => {"".to_string()}
     };
