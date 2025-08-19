@@ -1,6 +1,9 @@
 mod io;
 use io::*;
 
+mod structs;
+use structs::*;
+
 use serenity::all::{CreateEmbed, CreateMessage, RoleId, UserId};
 use serenity::builder::EditMember;
 use serenity::async_trait;
@@ -97,23 +100,18 @@ BOT_VERSION
             let args: Vec<&str> = msg.content.split(" ").collect();
             if args.len() < 3 {msg.reply(&ctx, "Command requires 2 arguments\nUsage: w!verify [discord-ping] [minecraft-user]").await.unwrap(); return;}
 
-            // TODO: Get an API to get minecraft UUIDs (see the note left in a certain dm)
-            // Or alternatively trust names and get borked over someone changing theirs
-
             let dc_username = args[1];
+            let dc_user = match DcUsername::try_from_pingid(dc_username) {
+                Some(dcuser) => dcuser,
+                None => {msg.reply(&ctx, "Please ping the user or format as <@(userid)>").await.unwrap(); return}
+            };
             let mc_username = args[2];
+            let mc_user = McUsername::new_from_name(mc_username);
 
-            // Validate dc username
-            if !dc_username.starts_with("<@") || !dc_username.ends_with(">") {
-                msg.reply(&ctx, "Invalid Discord username, please ping the user or format the name as <@(userid)>").await.unwrap();
-                return;
-            }
-
-            // Reply and commit
+            // Commit to DB
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
             if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please. (Member was not verified)").await.unwrap(); return;}
-            msg.reply(&ctx, format!("Verifying dc-user \"{}\" as mc-user \"{}\"", dc_username, mc_username)).await.unwrap();
-            insert_name_to_db(guild_id, dc_username, mc_username);
+            insert_name_to_db(guild_id, dc_user, mc_user);
 
             // Add role (messy af ik)
             let str_role_id = match get_guild_config(guild_id, "verified-role-id") {
@@ -130,6 +128,9 @@ BOT_VERSION
             // Add nickname
             let builder = EditMember::new().nickname(mc_username);
             target_mem_clone.edit(&ctx, builder).await.unwrap();
+
+            // Respond
+            msg.reply(&ctx, format!("User \"{}\" has been verified as \"{}\".", dc_username, mc_username)).await.unwrap();
         }
 
         else if msg.content.starts_with("w!unverify") {
@@ -158,7 +159,7 @@ BOT_VERSION
             } // Note that this (^) only runs if role id != 0 (if in previous chunk (might be hard to see))
             
             // Commit and reply
-            remove_name_from_db(guild_id, args[1]);
+            remove_name_from_db(guild_id, DcUsername::new_from_pingid(args[1]));
             msg.reply(&ctx, "User has been unverified").await.unwrap();
         } 
 

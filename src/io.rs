@@ -1,4 +1,6 @@
-use std::fs::{read_to_string, write, create_dir_all};
+use std::fs::{create_dir_all, read_to_string, write, OpenOptions};
+use std::io::Write;
+use crate::structs::*;
 
 /*
 The database is formatted like this:
@@ -13,64 +15,68 @@ The database *folder* (not file!) also stores the server's config.
 static DB_PATH: &str = "DBs";           // Name of the folder where DBs are stored
 static DB_FILE: &str = "names.txt";     // Name of the DB file (.txt my favorite db format)
 
-// TODO: Database code rewrite (start using a better format or something)
-
 /// Insert a name to the DB
-pub fn insert_name_to_db(guild_id: i64, dc_user: &str, mc_user: &str) {
-    let previous_text: String = match read_to_string(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE)) {
-        Ok(text) => {text},
-        Err(_) => {"".to_string()}
-    };
-    let _ = create_dir_all(format!("{}/{}", DB_PATH, guild_id.to_string()));
-    write(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE), format!("{}{} {}\n", previous_text, dc_user, mc_user)).unwrap();
+pub fn insert_name_to_db(guild_id: i64, dc_user: DcUsername, mc_user: McUsername) {
+    let database_path = format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE);
+    create_dir_all(format!("{}/{}", DB_PATH, guild_id)).ok();
+
+    let mut file: std::fs::File = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&database_path)
+        .unwrap();
+
+    writeln!(file, "{},{},{}", dc_user.pingid, mc_user.name, mc_user.uuid).ok();
 }
 
-/// Remove a name from the DB (automatically runs for both mc and dc username)
-pub fn remove_name_from_db(guild_id: i64, username: &str) {
-    // get names and a new namevec
-    let names = get_names(guild_id);
-    let mut purgednames: Vec<[String; 2]> = vec![];
-     
-    // Find and remove the extra name
-    for name in names {
-        if !(name[0] == username) && !(name[1] == username) {
-            purgednames.push(name);
-        }
+/// Remove a name from the DB
+pub fn remove_name_from_db(guild_id: i64, username: DcUsername) {
+    let database_path = format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE);
+
+    // Load file contents (if error, just return since nothing to remove)
+    let db_contents = match read_to_string(&database_path) {
+        Err(_) => return,
+        Ok(values) => values,
+    };
+
+    // Keep only the lines that don't match the username
+    let new_contents: String = db_contents
+        .lines()
+        .filter(|line| {
+            // Line format: dc-ping mc-name mc-uuid
+            let parts: Vec<&str> = line.split(",").collect();
+            if parts.len() < 1 {
+                return true; // keep malformed lines
+            }
+            parts[0] != username.pingid
+        })
+        .map(|s| s.to_string() + "\n")
+        .collect();
+
+    // Overwrite the file with filtered contents
+    let _ = write(database_path, new_contents);
+}
+
+/// Gets all the names in the server's DB, formatted as Vec<[discord-ping, mc-user, mc-uuid]>
+pub fn get_names(guild_id: i64) -> Vec<[String; 3]> {
+    let database_path = format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE);
+    let db_contents = match read_to_string(&database_path) {
+        Err(_) => {return vec![]}
+        Ok(values) => {values}
+    };
+
+    let lines: Vec<&str> = db_contents.split("\n").collect();
+    let mut returnvec: Vec<[String; 3]> = vec![];
+    for line in lines {
+        if line == "" {continue}
+        let values: Vec<&str> = line.split(",").collect();
+        returnvec.push([
+            values[0].to_string(),
+            values[1].to_string(),
+            values[2].to_string()
+        ])
     }
-
-    // Push back the old names
-    clear_name_db(guild_id);
-    for name in purgednames {
-        insert_name_to_db(guild_id, &name[0], &name[1]);
-    }
-}
-
-/// Delete the entire name DB (don't use unless necessary)
-fn clear_name_db(guild_id: i64) {
-    write(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE), "").unwrap();
-}
-
-/// Gets all the names in the name DB, in format {dc, mc}
-pub fn get_names(guild_id: i64) -> Vec<[String; 2]> {
-    // get names or ""
-    let names = match read_to_string(format!("{}/{}/{}", DB_PATH, guild_id, DB_FILE)) {
-        Ok(text) => {text}
-        Err(_) => {"".to_string()}
-    };
-
-    // construct a Vec<[String; 2]> (the return value)
-    let name_vec: Vec<&str> = names.split("\n").collect();
-    let mut return_vec: Vec<[String; 2]> = vec![];
-    for name in name_vec {
-        if name == "" {continue} // Check for the \n at the end
-        let names: Vec<&str> = name.split(" ").collect();
-        let dc_name = names[0];
-        let mc_name = names[1];
-
-        return_vec.push([dc_name.to_string(), mc_name.to_string()]);
-    };
-    
-    return_vec
+    return returnvec
 }
 
 /// Get a config value from a guild
