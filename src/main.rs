@@ -241,6 +241,9 @@ __w!verifiedrole [role-id]__
 __w!guildname [guild-name]__
 *Use this command to specify what wynncraft guild should the bot compare to when doing automatic member management* 
 
+__w!notifchannel [channel-id]__
+*Use this command to specify where should join notifications go to*
+
 The command to verify people is only available to people with the Manage Roles permission
 Commands to manage the verification system are only available to people with Administrator",
 BOT_VERSION
