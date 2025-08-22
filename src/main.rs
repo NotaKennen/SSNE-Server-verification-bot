@@ -1,4 +1,4 @@
-use serenity::all::{CreateEmbed, CreateMessage, GuildId, Http, RoleId, UserId};
+use serenity::all::{ChannelId, CreateEmbed, CreateMessage, GuildId, Http, RoleId, UserId};
 use serenity::builder::EditMember;
 use serenity::async_trait;
 use serenity::model::channel::Message;
@@ -16,9 +16,9 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.1.1";
+static BOT_VERSION: &str = "v1.2.1";
 
-// TODO: make verify and unverify functions use better args
+// TODO: Do a full rewrite of verify() and unverify()
 /// Verify a member
 async fn verify(ctx: &Context, msg: &Message, args: Vec<&str>) {
     // Make user objects
@@ -117,7 +117,19 @@ async fn run_wynndc_update() -> () {
             let path = entry.unwrap().path();
             let name = path.to_str().unwrap();
             let db_prefix = format!("{}/", &get_db_statics()[0]);
-            let int_id = match name.strip_prefix(&db_prefix).unwrap().parse::<i64>() {Ok(id) => {id}, Err(_) => {0}};
+            let win_db_prefix = format!("{}\\", &get_db_statics()[0]);
+            // windows uses \ instead of / (fuckin rats)
+            let path_name = match name.strip_prefix(&db_prefix) {
+                Some(noprefix_name) => {noprefix_name},
+                None => {
+                    match name.strip_prefix(&win_db_prefix) {
+                        Some(noprefix_name) => {noprefix_name},
+                        None => {name}
+                    }
+                }
+            }; 
+            let int_id = match path_name.parse::<i64>() {Ok(id) => {id}, Err(_) => {0}};
+            
             if int_id == 0 {continue} // in case of some weird bug
             guild_ids.push(int_id);
         } guild_ids
@@ -143,6 +155,38 @@ async fn run_wynndc_update() -> () {
     let mut dc_guildmembers: Vec<String> = vec![];
     for name in box_wynnguildmembers.clone() {wynn_guildmembers.push(name[1].to_string())}
     for name in box_dcguildmembers.clone() {dc_guildmembers.push(name[2].to_string())}
+
+    // If notificationchannel is set, check for new members
+    match get_guild_config(guild_id, "notif-channel-id") {
+        None => {break}
+        Some(str_channelid) => {
+            let members = match get_guild_config(guild_id, "wynn-guild-members") {
+                Some(r) => {r}
+                None => {String::new()}
+            };
+            let wg_members = wynn_guildmembers.clone(); // List of names
+            for wg_name in &wg_members {
+                let mut namestatus = false;
+                for old_name in members.split("\n") {
+                    if old_name == wg_name {namestatus = true}
+                }
+                if !namestatus {
+                    let int_channelid = match str_channelid.parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
+                    let notifchannel = ChannelId::new(int_channelid); // ^ should never be 0
+                    let wg_username = match get_name_from_uuid(&wg_name).await { // wg_name is UUID
+                        Some(name) => {name} // You could get it from the box_wynnguildmembers but I'm lazy
+                        None => {continue;}          // Maybe I'll optimize it later if I care
+                    }; 
+                    let msg_builder = CreateMessage::new().content(format!("**{}** has joined the guild!", wg_username));
+                    let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap()); // TODO: again, don't read token
+                    notifchannel.send_message(&cache, msg_builder).await.unwrap();
+                };
+            }
+            let mut formatted_members = String::new();
+            for name in &wg_members {formatted_members.push_str(&format!("{}\n", name));}
+            push_guild_config(guild_id, "wynn-guild-members", formatted_members);
+        }
+    }
 
     // Compare names
     let mut index = 0;
@@ -309,6 +353,36 @@ BOT_VERSION
             };
             push_guild_config(guild_id, "wynn-guild-name", args[1].to_string());
             msg.reply(&ctx, "Guild name has been saved").await.unwrap();
+        }
+
+        else if msg.content.starts_with("w!notifchannel") {
+            // Get and check arguments
+            let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {msg.reply(&ctx, "Command requires 1 argument\nUsage: w!notifchannel [channel-id]").await.unwrap(); return;}
+
+            // Check if it's a proper ID
+            let notif_channelid = match args[1].parse::<i64>() {Ok(id) => {id}, Err(_) => {0}};
+            if notif_channelid == 0 {msg.reply(&ctx, "Invalid channel ID").await.unwrap(); return}
+
+            // Get guild id
+            let guild_id: i64 = match msg.guild_id {
+                Some(id) => {id.into()},
+                None => {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+            };
+
+            // Push current members so it doesn't spam on the first check (directly stolen from the check lol)
+            let guildname = match get_guild_config(guild_id, "wynn-guild-name") { Some(name) => {name}, None => {msg.reply(&ctx, "Your guild name hasn't been set or is incorrect").await.unwrap(); return}}; 
+            if !is_real_guild(&guildname).await {return}
+            let box_wynnguildmembers = get_guild_members(&guildname).await;
+            let mut wg_members: Vec<String> = vec![];
+            for name in box_wynnguildmembers.clone() {wg_members.push(name[1].to_string())}
+            let mut formatted_members = String::new();
+            for name in &wg_members {formatted_members.push_str(&format!("{}\n", name));}
+            push_guild_config(guild_id, "wynn-guild-members", formatted_members);
+
+            // Commit and reply
+            push_guild_config(guild_id, "notif-channel-id", notif_channelid.to_string());
+            msg.reply(&ctx, "Channel has been saved").await.unwrap();
         }
 
         /* if msg.content.starts_with("w!debug_runupdate") {

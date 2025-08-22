@@ -14,6 +14,17 @@ pub async fn get_mc_uuid(username: &str) -> Option<String> {
     return Some(resp["id"].as_str().unwrap().to_string()) // force convert to string just to be safe
 }
 
+pub async fn get_name_from_uuid(uuid: &str) -> Option<String> {
+    let resp: HashMap<String, serde_json::Value> = reqwest::get(format!("https://sessionserver.mojang.com/session/minecraft/profile/{}", uuid))
+        .await.unwrap()
+        .json::<HashMap<String, serde_json::Value>>()
+        .await.unwrap();
+    if resp.contains_key("name") == false {
+        return None
+    }
+    return Some(resp["name"].as_str().unwrap().to_string()) // force convert to string again
+}
+
 /// Checks whether or not a guild exists, returns true/false
 pub async fn is_real_guild(guild_identification: &str) -> bool {
     let req = reqwest::get(format!("https://api.wynncraft.com/v3/guild/prefix/{}", guild_identification)).await.unwrap();
