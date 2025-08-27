@@ -361,8 +361,14 @@ BOT_VERSION
         // - - - ADMINISTRATOR PERMISSION LEVEL - - - 
 
         if msg.content.starts_with("w!verifiedrole") {
-            // Get arguments
+            // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {
+                let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+                if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+                push_guild_config(guild_id, "verified-role-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); 
+                return;
+            }
 
             // Format the provided (str) id to a proper integer
             let role_id = match args[1].parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
@@ -373,14 +379,19 @@ BOT_VERSION
             if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
 
             // Commit and answer
-            if args.len() < 2 {push_guild_config(guild_id, "verified-role-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); return;}
             push_guild_config(guild_id, "verified-role-id", role_id.to_string());
             msg.reply(&ctx, "Verified role has been saved").await.unwrap();
         }
     
         else if msg.content.starts_with("w!guildname") {
-            // Get arguments
+            // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {
+                let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+                if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+                push_guild_config(guild_id, "wynn-guild-name", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); 
+                return;
+            }
 
             // Check if it's real
             if !is_real_guild(args[1]).await {
@@ -393,14 +404,19 @@ BOT_VERSION
                 Some(id) => {id.into()},
                 None => {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
             };
-            if args.len() < 2 {push_guild_config(guild_id, "wynn-guild-name", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); return;}
             push_guild_config(guild_id, "wynn-guild-name", args[1].to_string());
             msg.reply(&ctx, "Guild name has been saved").await.unwrap();
         }
 
         else if msg.content.starts_with("w!notifchannel") {
-            // Get arguments
+            // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {
+                let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+                if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+                push_guild_config(guild_id, "notif-channel-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); 
+                return;
+            }
 
             // Check if it's a proper ID
             let notif_channelid = match args[1].parse::<i64>() {Ok(id) => {id}, Err(_) => {0}};
@@ -411,8 +427,6 @@ BOT_VERSION
                 Some(id) => {id.into()},
                 None => {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
             };
-
-            if args.len() < 2 {push_guild_config(guild_id, "notif-channel-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); return;}
 
             // Push current members so it doesn't spam on the first check (directly stolen from the check lol)
             let guildname = match get_guild_config(guild_id, "wynn-guild-name") { Some(name) => {name}, None => {msg.reply(&ctx, "Your guild name hasn't been set or is incorrect").await.unwrap(); return}}; 
@@ -430,8 +444,14 @@ BOT_VERSION
         }
 
         else if msg.content.starts_with("w!vetrole") {
-            // Get arguments
+            // Get and check arguments
             let args: Vec<&str> = msg.content.split(" ").collect();
+            if args.len() < 2 {
+                let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+                if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+                push_guild_config(guild_id, "veteran-role-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); 
+                return;
+            }
 
             // Format the provided (str) id to a proper integer
             let role_id = match args[1].parse::<u64>() {Ok(id) => {id}, Err(_) => {0}};
@@ -440,7 +460,6 @@ BOT_VERSION
             // Push the role id to the config file 
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
             if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
-            if args.len() < 2 {push_guild_config(guild_id, "veteran-role-id", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); return;}
             push_guild_config(guild_id, "veteran-role-id", role_id.to_string());
 
             // Answer
@@ -451,6 +470,12 @@ BOT_VERSION
             // TODO: add args clearing
             // Get args and misc (different from usual since we don't know how many there are)
             let args = match msg.content.strip_prefix("w!removedroles ") {None => {"".to_string()}, Some(args) => {args.to_string()}};
+            if args == "" {
+                let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
+                if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
+                push_guild_config(guild_id, "removed-roles", "".to_string()); msg.reply(&ctx, "Config has been cleared").await.unwrap(); 
+                return;
+            }
             let guild_id: i64 = match msg.guild_id {Some(guildid) => {guildid.into()}, None => {0}};
             if guild_id == 0 {msg.reply(&ctx, "ERROR: Guild ID wasn't found! Either not a guild, or an error happened somewhere, report to Memarios please.").await.unwrap(); return;}
             
