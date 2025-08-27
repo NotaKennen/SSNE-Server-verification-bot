@@ -2,4 +2,8 @@
 /DBs
 PROD_EXEC
 start.sh
-token.txt
+start_prod.sh
+start_dev.sh
+update_prod.sh
+prod_token.txt
+dev_token.txt

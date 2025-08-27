@@ -5,6 +5,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
+use std::env;
 use std::fs::read_dir;
 
 mod io;
@@ -16,7 +17,7 @@ use structs::*;
 mod wynnapi;
 use wynnapi::*;
 
-static BOT_VERSION: &str = "v1.5.2";
+static BOT_VERSION: &str = "v1.5.3";
 
 /// Verify a member
 async fn verify(cache: impl AsRef<Http> + serenity::prelude::CacheHttp, guild_id: i64, target_dc_user: DcUsername, target_mc_user: McUsername) -> Result<String, String> {
@@ -467,7 +468,6 @@ BOT_VERSION
         }
 
         else if msg.content.starts_with("w!removedroles") {
-            // TODO: add args clearing
             // Get args and misc (different from usual since we don't know how many there are)
             let args = match msg.content.strip_prefix("w!removedroles ") {None => {"".to_string()}, Some(args) => {args.to_string()}};
             if args == "" {
@@ -502,9 +502,9 @@ BOT_VERSION
             interval_timer.tick().await;
             tokio::spawn( async move {
                 println!("STATUS: Running updater");
-                let cache = Http::new(&std::fs::read_to_string("token.txt").unwrap());
-                run_wynndc_update(cache).await; // ^ // TODO: Figure out a solution that doesn't re-read token 
-                println!("STATUS: Hourly update done!") // ^ Shouldn't be too hard tbh
+                let cache = Http::new(&env::var("DTOKEN").expect("Couldn't find environment variable for Discord token (DTOKEN)"));
+                run_wynndc_update(cache).await;
+                println!("STATUS: Hourly update done!")
                 }
             );
         }}
@@ -515,7 +515,13 @@ BOT_VERSION
 #[tokio::main]
 async fn main() {
     // Load token from file
-    let token = std::fs::read_to_string("token.txt").expect("Unable to read token file");
+    let token = match env::var("DTOKEN") {
+        Ok(token) => {token},
+        Err(_) => {
+            println!("Couldn't find token as environment variable (DTOKEN), searching for dev token file");
+            std::fs::read_to_string("dev_token.txt").expect("Couldn't find token in env or as a dev file")
+        }
+    };
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
     let mut client =
