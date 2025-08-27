@@ -14,8 +14,10 @@ To enable the "veteran role", or the role given to unverified people, do __w!vet
 
 To specify extra roles to remove when a person is unverified (like ranks etc.), do __w!removedroles (role-id)__, so that *(role-id)* is a role you want to remove on unverification. You can list as many role IDs as you want, add a space between them. Note that whatever you put in there will overwrite the current configuration, so when adding new ones, list the old ones before it.
 
+To clear any of the previous configs, you can just do the command without the arguments, and it'll clear out that particular config.
+
 ### Self hosting?
-If you want to host the bot yourself, you can clone the git repo, make a file called token.txt, put your bot token in there, and then run the Rust project ("cargo run"). Then you should have a local instance of the bot that you can add to your server. 
+Self hosting the bot is fairly easy, and requires little to no setup. However the project isn't particularly designed with self-hosting in mind, so not recommended. To self-host, you'll obviously need the Rust compiler, as well as the project files (duh). Clone the git repo, make a file called dev_token.txt, and put your bot token there. You can (and should) pass the token as an environment variable ("DTOKEN"), and it'll accept that instead of the file. You should probably make some sort of shell script to automatically start everything up (cd to the directory, export the token as an environment variable and then run the project), but you can really just do 'cargo run' every time if you're feeling like it (provided that the token file exists) and it'll handle everything by itself.
 
 ## Features
 As for features, it can:
@@ -31,4 +33,4 @@ Planned features:
 - More configuration on what the bot should/shouldn't do
 - Activity tracking
 - (Maybe?) Fully automatic verification (without the need of admins/managers)
-- (Backend) A better DB system
+- (Backend) A better DB system (move to sqlite, drops the need of server specific sectors and such)
